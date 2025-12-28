@@ -9,7 +9,7 @@ It is intended as an AI decision-support tool, not a replacement for medical pro
 Oral cancer has a high prevalence in countries like India, where early detection can significantly improve survival rates.
 This project explores how computer vision and transfer learning can assist in early screening using medical images.
 
-# 🚀 Features
+## 🚀 Features
 
 Binary classification: Cancer vs Non-Cancer
 
@@ -23,7 +23,7 @@ Adjustable screening vs diagnostic thresholds
 
 Clear clinical disclaimers
 
-# 🧠 Model Overview
+## 🧠 Model Overview
 
 Architecture: MobileNetV2 + custom classifier
 
@@ -43,7 +43,7 @@ Early stopping
 
 Learning rate scheduling
 
-# 📂 Project Structure
+## 📂 Project Structure
 OralCancerApp/
 ├── train.py
 ├── predict.py
@@ -73,12 +73,12 @@ Optional custom threshold:
 
 python predict.py image.jpg 0.35
 
-# ⚠️ Disclaimer
+## ⚠️ Disclaimer
 
 This system is for educational and research purposes only.
 Predictions must always be confirmed by qualified medical professionals.
 
-# 🔮 Future Scope
+## 🔮 Future Scope
 
 Multi-cancer screening (Breast, Skin, etc.)
 
@@ -88,7 +88,7 @@ REST API for hospital integration
 
 Mobile application support
 
-# 👨‍🎓 Author
+## 👨‍🎓 Author
 
-# Jay Gautam
+## Jay Gautam
 B.Tech – Computer Science (AI & ML)
