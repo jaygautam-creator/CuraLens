@@ -1,5 +1,5 @@
-## CuraLens 🩺
-# AI-Assisted Oral Cancer Screening System
+# CuraLens 🩺
+## AI-Assisted Oral Cancer Screening System
 
 CuraLens is a deep learning–based web application designed to assist in the screening of oral cancer from oral cavity images.
 It is intended as an AI decision-support tool, not a replacement for medical professionals.
