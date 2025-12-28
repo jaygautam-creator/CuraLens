@@ -1,0 +1,15 @@
+# Data
+data_clean/
+
+# Models
+models/*.h5
+models/*.keras
+models/training_log.csv
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# OS
+.DS_Store

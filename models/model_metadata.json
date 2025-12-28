@@ -1,0 +1,41 @@
+{
+  "training_date": "2025-12-28 12:47:05",
+  "model_info": {
+    "architecture": "MobileNetV2 + Custom Classifier",
+    "input_shape": [
+      224,
+      224,
+      3
+    ],
+    "output_interpretation": "Model outputs CANCER probability directly (sigmoid output = probability of cancer)"
+  },
+  "performance": {
+    "auc": 0.9889,
+    "optimal_threshold": 0.512,
+    "accuracy": 0.9493,
+    "sensitivity": 0.9296,
+    "specificity": 0.9701,
+    "precision": 0.9706,
+    "f1_score": 0.9496,
+    "confusion_matrix": [
+      [
+        65,
+        2
+      ],
+      [
+        5,
+        66
+      ]
+    ]
+  },
+  "dataset": {
+    "train_samples": 802,
+    "val_samples": 138,
+    "actual_class_mapping": "Model outputs cancer probability (high output = high cancer risk)",
+    "note": "Previous metadata had inverted interpretation. Corrected based on actual model behavior."
+  },
+  "thresholds": {
+    "diagnostic": 0.512,
+    "screening": 0.358
+  }
+}
