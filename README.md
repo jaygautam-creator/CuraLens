@@ -1,9 +1,4 @@
-Great — the **content is solid**, it just needs **Markdown cleanup + small polishing** so it looks professional on GitHub and doesn’t confuse evaluators.
 
-Below is a **cleaned, corrected, GitHub-ready README.md**.
-You can **replace your README entirely with this** (copy–paste).
-
----
 
 ```markdown
 # CuraLens 🩺  
