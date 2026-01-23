@@ -13,3 +13,18 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Python / virtual env
+venv_oralcancer/
+.python-version
+__pycache__/
+
+# Editor
+.vscode/
+
+# Logs / local files
+automation_logs/
+
+# Local / personal files
+resume.tex
+test_import.py
