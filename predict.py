@@ -51,22 +51,21 @@ def preprocess_image(image_path):
 def predict_with_correct_labels(model, image_array, metadata):
     """
     Make prediction with correct label interpretation.
-    The model outputs probability of class 1 (non_cancer).
-    We convert this to probability of cancer.
+    The model outputs cancer probability directly (sigmoid output = cancer probability).
     """
-    # Model outputs probability of NON-CANCER (class 1)
-    non_cancer_prob = model.predict(image_array, verbose=0)[0][0]
+    # Model outputs cancer probability directly
+    cancer_prob = model.predict(image_array, verbose=0)[0][0]
     
-    # Cancer probability = 1 - non_cancer_prob
-    cancer_prob = 1 - non_cancer_prob
+    # Non-cancer probability = 1 - cancer_prob
+    non_cancer_prob = 1 - cancer_prob
     
-    # Get optimal threshold (this is for non_cancer probability)
+    # Get optimal threshold (this is for cancer probability)
     threshold = metadata['performance']['optimal_threshold']
     
-    # Decision: if non_cancer_prob >= threshold, predict NON-CANCER, else CANCER
-    prediction = "NON-CANCER" if non_cancer_prob >= threshold else "CANCER"
+    # Decision: if cancer_prob >= threshold, predict CANCER, else NON-CANCER
+    prediction = "CANCER" if cancer_prob >= threshold else "NON-CANCER"
     
-    # Confidence is cancer probability if predicting cancer, otherwise non-cancer probability
+    # Confidence is the probability of the predicted class
     confidence = cancer_prob if prediction == "CANCER" else non_cancer_prob
     
     return cancer_prob, non_cancer_prob, prediction, confidence, threshold
@@ -80,13 +79,13 @@ def print_results(image_path, cancer_prob, non_cancer_prob, prediction, confiden
     print(f"\n📊 PROBABILITY SCORES:")
     print(f"  Probability of CANCER:    {cancer_prob:.4f}")
     print(f"  Probability of NON-CANCER: {non_cancer_prob:.4f}")
-    print(f"  Decision threshold:       {threshold:.3f} (for non-cancer)")
+    print(f"  Decision threshold:       {threshold:.3f} (for cancer)")
     print(f"  Final prediction:         {prediction}")
     print(f"  Confidence:               {confidence:.1%}")
     
     print(f"\n⚖️ DECISION RULE:")
-    print(f"  If non-cancer probability ≥ {threshold:.3f} → Predict NON-CANCER")
-    print(f"  If non-cancer probability < {threshold:.3f} → Predict CANCER")
+    print(f"  If cancer probability ≥ {threshold:.3f} → Predict CANCER")
+    print(f"  If cancer probability < {threshold:.3f} → Predict NON-CANCER")
     
     print(f"\n🏥 CLINICAL INTERPRETATION:")
     if prediction == "CANCER":
@@ -126,7 +125,7 @@ def print_results(image_path, cancer_prob, non_cancer_prob, prediction, confiden
         'confidence': float(confidence),
         'threshold_used': float(threshold),
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'note': 'Model outputs probability of non-cancer. Cancer probability = 1 - non_cancer_probability.'
+        'note': 'Model outputs cancer probability directly. Higher output = higher cancer risk.'
     }
 
 def main():
@@ -136,8 +135,8 @@ def main():
         print("\nExamples:")
         print("  python predict.py image.jpg")
         print("  python predict.py /path/to/image.jpg")
-        print("\nThe model outputs probability of NON-CANCER.")
-        print("Cancer probability is calculated as 1 - non_cancer_probability.")
+        print("\nThe model outputs cancer probability directly.")
+        print("Higher output values indicate higher cancer risk.")
         sys.exit(1)
     
     image_path = sys.argv[1]
