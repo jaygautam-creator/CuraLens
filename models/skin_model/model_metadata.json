@@ -1,0 +1,19 @@
+{
+    "task": "Skin visual abnormality screening",
+    "classes": {
+        "0": "Benign (Normal)",
+        "1": "Malignant (Abnormal)"
+    },
+    "architecture": "MobileNetV2 (transfer learning)",
+    "input_size": [
+        224,
+        224
+    ],
+    "performance": {
+        "best_val_auc": 0.9431653022766113
+    },
+    "ethics": {
+        "diagnosis": false,
+        "usage": "AI-assisted screening only"
+    }
+}
