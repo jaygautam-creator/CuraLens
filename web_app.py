@@ -438,6 +438,16 @@ def _decode_uploaded_image_rgb(image_bytes: bytes) -> np.ndarray:
             raise ValueError('Could not decode uploaded image')
         return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
+
+def _stabilize_probability(probability: float, alpha: float = 0.98) -> float:
+    """
+    Smooth over-confident sigmoid outputs to avoid hard 0% / 100% collapse.
+    This preserves ranking while preventing numerically saturated endpoints.
+    """
+    p = float(np.clip(float(probability), 0.0, 1.0))
+    p = alpha * p + (1.0 - alpha) * 0.5
+    return float(np.clip(p, 1e-6, 1.0 - 1e-6))
+
 def get_threshold_for_mode(mode, optimal_threshold=0.512):
     if mode == 'screening':
         return optimal_threshold * 0.7
@@ -3600,7 +3610,8 @@ def predict():
         img = img_uint8.astype('float32') / 255.0
         img_array = np.expand_dims(img, axis=0)
         
-        cancer_prob = float(oral_model.predict(img_array, verbose=0)[0][0])
+        raw_cancer_prob = float(oral_model.predict(img_array, verbose=0)[0][0])
+        cancer_prob = _stabilize_probability(raw_cancer_prob, alpha=0.99)
         non_cancer_prob = 1 - cancer_prob
         
         optimal_threshold = 0.512
@@ -3652,6 +3663,7 @@ def predict():
         return jsonify({
             'success': True,
             'cancer_probability': cancer_prob,
+            'raw_cancer_probability': round(raw_cancer_prob, 6),
             'non_cancer_probability': non_cancer_prob,
             'prediction': prediction,
             'confidence': confidence,
@@ -3789,14 +3801,18 @@ def predict_v2():
                 v1_result = predict_skin(fb_bytes)
             except Exception as e:
                 return jsonify({'error': f'Skin V1 fallback error: {e}'}), 500
-            raw_prob = float(np.clip(float(v1_result.get('cancer_probability', 0.5)), 0.0, 1.0))
-            risk = v2_score(raw_prob)
+            base_prob = v1_result.get('cancer_probability', v1_result.get('risk_score', 0.5))
+            raw_prob = float(np.clip(float(base_prob), 0.0, 1.0))
+            calibrated_prob = _stabilize_probability(raw_prob, alpha=0.98)
+            risk = v2_score(calibrated_prob)
             return jsonify({
                 'success'          : True,
                 'version'          : 'v1_fallback_skin',
                 'cancer_type'      : 'skin',
-                'probability'      : round(raw_prob, 6),
-                'probability_pct'  : round(raw_prob * 100, 2),
+                'probability'      : round(calibrated_prob, 6),
+                'probability_pct'  : round(calibrated_prob * 100, 2),
+                'raw_probability'  : round(raw_prob, 6),
+                'raw_probability_pct': round(raw_prob * 100, 2),
                 'risk_level'       : risk.risk_level,
                 'risk_label'       : risk.risk_label,
                 'confidence_band'  : risk.confidence_band,
@@ -3805,7 +3821,8 @@ def predict_v2():
                 'metadata_used'    : {},
                 'metadata_warnings': [
                     'Skin V2 multimodal model is still training — using V1 image-only model as fallback. '
-                    'Metadata risk factors are not included in this result.'
+                    'Metadata risk factors are not included in this result.',
+                    'Probability smoothing was applied to avoid saturated 0% / 100% outputs.'
                 ],
                 'gradcam_png_b64'  : None,
                 'gradcam_shape'    : None,
@@ -3913,13 +3930,19 @@ def predict_v2():
             meta_warnings.insert(0,
                 'v2 multimodal model is currently being recalibrated. '
                 'Image probability from v1 model; metadata risk factors applied separately.')
+
+        calibrated_prob = _stabilize_probability(raw_prob, alpha=0.98)
+        if raw_prob <= 1e-4 or raw_prob >= (1.0 - 1e-4):
+            meta_warnings.insert(0,
+                'Prediction confidence was numerically saturated (near 0/1). '
+                'Probability smoothing was applied for stable reporting.')
     except Exception as e:
         print(f'[v2] Prediction error: {e}')
         traceback.print_exc()
         return jsonify({'error': f'Prediction failed: {e}'}), 500
 
     # ---------------------------------------------------------- risk scoring
-    risk = v2_score(raw_prob)
+    risk = v2_score(calibrated_prob)
 
     # --------------------------------------------------------------- grad-cam
     gradcam_b64  = None
@@ -3951,8 +3974,10 @@ def predict_v2():
         'version'          : f'v2_multimodal_{cancer_type}',
         'cancer_type'      : cancer_type,
         # ── core prediction ──
-        'probability'      : round(raw_prob, 6),
-        'probability_pct'  : round(raw_prob * 100, 2),
+        'probability'      : round(calibrated_prob, 6),
+        'probability_pct'  : round(calibrated_prob * 100, 2),
+        'raw_probability'  : round(raw_prob, 6),
+        'raw_probability_pct': round(raw_prob * 100, 2),
         # ── risk tier ──
         'risk_level'       : risk.risk_level,
         'risk_label'       : risk.risk_label,
@@ -4060,6 +4085,8 @@ def field_screen():
     else:
         cancer_prob = float(oral_model.predict(img_batch, verbose=0)[0][0])
         cancer_prob = float(np.clip(cancer_prob, 0.0, 1.0))
+
+    cancer_prob = _stabilize_probability(cancer_prob, alpha=0.98)
 
     # ── risk tier ─────────────────────────────────────────────────────────────
     if cancer_prob >= 0.7:

@@ -38,6 +38,13 @@ _skin_model = None
 _metadata = None
 
 
+def _stabilize_probability(probability, alpha=0.98):
+    """Reduce hard-saturated 0/1 outputs while preserving ranking."""
+    p = float(np.clip(float(probability), 0.0, 1.0))
+    p = alpha * p + (1.0 - alpha) * 0.5
+    return float(np.clip(p, 1e-6, 1.0 - 1e-6))
+
+
 def load_skin_model():
     """Safely load the skin screening model with error handling"""
     global _skin_model, _metadata
@@ -170,8 +177,9 @@ def predict_skin(image_bytes):
         else:
             risk_score = float(prediction)
         
-        # Ensure risk_score is between 0 and 1
-        risk_score = np.clip(risk_score, 0.0, 1.0)
+        # Stabilize to avoid hard-saturated 0 / 1 outputs.
+        raw_risk_score = float(np.clip(risk_score, 0.0, 1.0))
+        risk_score = _stabilize_probability(raw_risk_score, alpha=0.98)
         
         # Interpret risk score
         risk_level, screening_result, confidence = interpret_risk_score(risk_score)
@@ -183,6 +191,8 @@ def predict_skin(image_bytes):
         # Prepare result in required format
         result = {
             "risk_score": round(float(risk_score), 4),
+            "raw_risk_score": round(float(raw_risk_score), 6),
+            "cancer_probability": round(float(risk_score), 4),
             "risk_level": risk_level,
             "screening_result": screening_result,
             "confidence": round(float(confidence), 4),
@@ -195,7 +205,9 @@ def predict_skin(image_bytes):
     except FileNotFoundError as e:
         # Model file not found - return safe default
         return {
-            "risk_score": 0.0,
+            "risk_score": 0.01,
+            "raw_risk_score": 0.0,
+            "cancer_probability": 0.01,
             "risk_level": "VERY LOW",
             "screening_result": "NORMAL",
             "confidence": 0.95,
@@ -207,7 +219,9 @@ def predict_skin(image_bytes):
         # Return safe default in case of any error
         print(f"Error in skin prediction: {str(e)}")
         return {
-            "risk_score": 0.0,
+            "risk_score": 0.01,
+            "raw_risk_score": 0.0,
+            "cancer_probability": 0.01,
             "risk_level": "VERY LOW",
             "screening_result": "NORMAL",
             "confidence": 0.9,
