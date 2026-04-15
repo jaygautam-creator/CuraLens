@@ -28,7 +28,7 @@ except ImportError as e:
 try:
     import tensorflow as tf
     import cv2
-    from PIL import Image
+    from PIL import Image, ImageOps
     ORAL_DEPENDENCIES_OK = True
 except ImportError as e:
     ORAL_DEPENDENCIES_OK = False
@@ -408,6 +408,7 @@ def _build_pdf_report(record: dict,
 
 def preprocess_oral_image(image_bytes):
     image = Image.open(io.BytesIO(image_bytes))
+    image = ImageOps.exif_transpose(image)
     image = np.array(image)
     
     if len(image.shape) == 2:
@@ -419,6 +420,23 @@ def preprocess_oral_image(image_bytes):
     image = image.astype('float32') / 255.0
     
     return np.expand_dims(image, axis=0)
+
+
+def _decode_uploaded_image_rgb(image_bytes: bytes) -> np.ndarray:
+    """Decode uploaded image bytes into RGB and honor EXIF orientation."""
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        image = ImageOps.exif_transpose(image)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        return np.array(image)
+    except Exception:
+        # Fallback for uncommon image edge-cases where PIL fails to decode.
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img_bgr is None:
+            raise ValueError('Could not decode uploaded image')
+        return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
 def get_threshold_for_mode(mode, optimal_threshold=0.512):
     if mode == 'screening':
@@ -3177,7 +3195,11 @@ HTML_TEMPLATE = '''
         }
 
         function updateOralV2Results(data) {
-            const prob    = parseFloat(data.probability || 0);
+            const probRaw = Number(data.probability);
+            const probPctRaw = Number(data.probability_pct) / 100;
+            const prob = Number.isFinite(probRaw)
+                ? probRaw
+                : (Number.isFinite(probPctRaw) ? probPctRaw : 0);
             const probPct = (prob * 100).toFixed(1);
 
             document.getElementById('oralV2PatternProb').textContent    = probPct + '%';
@@ -3282,7 +3304,11 @@ HTML_TEMPLATE = '''
         }
 
         function updateSkinV2Results(data) {
-            const prob    = parseFloat(data.probability || 0);
+            const probRaw = Number(data.probability);
+            const probPctRaw = Number(data.probability_pct) / 100;
+            const prob = Number.isFinite(probRaw)
+                ? probRaw
+                : (Number.isFinite(probPctRaw) ? probPctRaw : 0);
             const probPct = (prob * 100).toFixed(1);
 
             document.getElementById('skinV2PatternProb').textContent    = probPct + '%';
@@ -3802,11 +3828,7 @@ def predict_v2():
 
     try:
         image_bytes = file.read()
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img_bgr is None:
-            raise ValueError('OpenCV could not decode the uploaded image')
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_rgb = _decode_uploaded_image_rgb(image_bytes)
     except Exception as e:
         return jsonify({'error': f'Image decode error: {e}'}), 400
 
@@ -4021,11 +4043,7 @@ def field_screen():
 
     try:
         image_bytes = file.read()
-        nparr  = np.frombuffer(image_bytes, np.uint8)
-        img    = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None:
-            raise ValueError('Could not decode uploaded image')
-        img    = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = _decode_uploaded_image_rgb(image_bytes)
     except Exception as e:
         return jsonify({'error': f'Image decode error: {e}'}), 400
 

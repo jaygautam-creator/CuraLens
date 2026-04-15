@@ -8,7 +8,7 @@ import json
 import numpy as np
 import cv2
 import tensorflow as tf
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 from utils_v2.model_loader import safe_load_model
 
@@ -80,6 +80,7 @@ def preprocess_skin_image(image_bytes):
     try:
         # Decode image bytes using PIL for better compatibility
         image = Image.open(io.BytesIO(image_bytes))
+        image = ImageOps.exif_transpose(image)
         
         # Convert to RGB (handle grayscale, RGBA, etc.)
         if image.mode != 'RGB':
