@@ -3915,8 +3915,24 @@ def predict_v2():
 
     # ------------------------------------------------------------ prediction
     try:
-        raw_prob = float(active_model.predict(model_input, verbose=0)[0][0])
-        raw_prob = float(np.clip(raw_prob, 0.0, 1.0))
+        if cancer_type == 'skin':
+            # Lightweight TTA for skin v2: average original + horizontal flip.
+            # This reduces brittle orientation sensitivity without heavy latency.
+            p0 = float(active_model.predict(model_input, verbose=0)[0][0])
+            img_batch_hflip = np.expand_dims(
+                img_rgb_resized[:, ::-1, :].astype('float32'), axis=0
+            )
+            p_flip = float(active_model.predict([img_batch_hflip, metadata_array], verbose=0)[0][0])
+            raw_prob = float(np.clip((p0 + p_flip) / 2.0, 0.0, 1.0))
+            if abs(p0 - p_flip) >= 0.35:
+                meta_warnings.insert(
+                    0,
+                    'Prediction is sensitive to image orientation (original vs flipped). '
+                    'Review with clinical caution and consider additional images.'
+                )
+        else:
+            raw_prob = float(active_model.predict(model_input, verbose=0)[0][0])
+            raw_prob = float(np.clip(raw_prob, 0.0, 1.0))
 
         # Guard: if the model outputs essentially 0 for everything (collapsed model),
         # fall back to the v1 oral model so the user gets a calibrated result.
@@ -3931,7 +3947,9 @@ def predict_v2():
                 'v2 multimodal model is currently being recalibrated. '
                 'Image probability from v1 model; metadata risk factors applied separately.')
 
-        calibrated_prob = _stabilize_probability(raw_prob, alpha=0.98)
+        # Stronger smoothing for skin v2 to avoid 0%/100% collapse in UI.
+        alpha = 0.90 if cancer_type == 'skin' else 0.98
+        calibrated_prob = _stabilize_probability(raw_prob, alpha=alpha)
         if raw_prob <= 1e-4 or raw_prob >= (1.0 - 1e-4):
             meta_warnings.insert(0,
                 'Prediction confidence was numerically saturated (near 0/1). '
